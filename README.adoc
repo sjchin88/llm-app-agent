@@ -1,0 +1,45 @@
+= Installation Instruction
+
+== Steps
+
+1. Download code or clone the repo.
+
+2. Activate your virtual environment
+
+3. Install dependencies with poetry
+
+4. Activate the poetry shell
+
+5. Open Jupyter Lab / Run the st_weather_agent.py script using streamlit
+
+[source, console]
+----
+# Step 2 Activate virtual Environment
+python -m venv <directory>
+# Example
+python -m venv myenv
+
+# Source the activate file , in bash
+source <directory>/Scripts/activate
+# Example
+source myenv/Scripts/activate
+
+# Step 3 Install Dependencies with poetry (prerequisite - poetry installed)
+# if changed python version, update the poetry.lock
+poetry lock --no-update
+
+# Install
+poetry install
+
+# Step 4 Activate the poetry shell
+poetry shell
+
+# (Optional) check which venv is inused
+poetry env list
+
+# Step 5 Open Jupyter Lab
+jupyter lab
+
+# Step 5 Run the st_weather_agent.py for Frond-end 
+python -m streamlit st_weather_agent.py
+----
