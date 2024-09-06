@@ -23,7 +23,7 @@ from langchain_core.chat_history import BaseChatMessageHistory
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.schema import AgentAction, AgentFinish, HumanMessage, SystemMessage
+from langchain.schema import AgentAction, AgentFinish, AIMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain.agents.agent import AgentOutputParser
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -36,27 +36,13 @@ _ = load_dotenv(find_dotenv())
 
 openai_api_key = os.environ["OPENAI_API_KEY"]
 
-web_app = FastAPI(
-    title="LangChain Server",
-    version="1.0",
-    description="Spin up a simple api server using Langchain's Runnable interfaces",
-)
-
-# Declare the prompt, model required for a chain
-system_template = "Translate the following into {language}:"
-
-""" prompt_template = ChatPromptTemplate.from_messages([
-    ('system', system_template),
-    ('user', '{text}')
-]) """
-
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-prompt = ChatPromptTemplate.from_messages(
+""" prompt = ChatPromptTemplate.from_messages(
     [
         ("system", "You're an assistant by the name of Goku"),
         ("human", "{human_input}"),
     ]
-)
+) """
 
 # Prepare search_tool
 tavily_search_tool = TavilySearchResults(max_results=2)
@@ -65,42 +51,18 @@ tools = [tavily_search_tool]
 # The agent returned is a runnable
 weather_agent = create_react_agent(model, tools)
 
-# From https://cookbook.openai.com/examples/how_to_build_a_tool-using_agent_with_langchain
-
-
-class CustomOutputParser(AgentOutputParser):
-
-    def parse(self, llm_output: str) -> Union[AgentAction, AgentFinish]:
-
-        # Check if agent should finish
-        if "Final Answer:" in llm_output:
-            return AgentFinish(
-                # Return values is generally always a dictionary with a single `output` key
-                # It is not recommended to try anything else at the moment :)
-                return_values={"output": llm_output.split(
-                    "Final Answer:")[-1].strip()},
-                log=llm_output,
-            )
-
-        # Parse out the action and action input
-        regex = r"Action: (.*?)[\n]*Action Input:[\s]*(.*)"
-        match = re.search(regex, llm_output, re.DOTALL)
-
-        # If it can't parse the output it raises an error
-        # You can add your own logic here to handle errors in a different way i.e. pass to a human, give a canned response
-        if not match:
-            raise ValueError(f"Could not parse LLM output: `{llm_output}`")
-        action = match.group(1).strip()
-        action_input = match.group(2)
-
-        # Return the action and action input
-        return AgentAction(tool=action, tool_input=action_input.strip(" ").strip('"'), log=llm_output)
-
-
-output_parser = CustomOutputParser()
-
 # So we can try to chain it
-chain = prompt | weather_agent | output_parser
+chain = weather_agent
+
+
+class InputChat(BaseModel):
+    """Input for the chat endpoint."""
+
+    messages: list[Union[HumanMessage, AIMessage, SystemMessage]] = Field(
+        ...,
+        description="The chat messages representing the current conversation.",
+    )
+
 
 web_app = FastAPI(
     title="simple backend with agent",
@@ -110,8 +72,9 @@ web_app = FastAPI(
 
 add_routes(
     web_app,
-    chain,
-    path="/chain"
+    chain.with_types(input_type=InputChat),
+    path="/chain",
+    playground_type="default",
 )
 
 if __name__ == "__main__":
